@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>試行回数と結果の入力フォーム</title>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f7f9fc;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 700px;
+            margin: 50px auto;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            font-size: 24px;
+            color: #2c3e50;
+            margin-bottom: 40px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            padding: 15px;
+            text-align: center;
+        }
+        th {
+            background-color: #ecf0f1;
+            color: #34495e;
+            font-weight: bold;
+            border-bottom: 2px solid #ddd;
+        }
+        td {
+            background-color: #fafafa;
+            border-bottom: 1px solid #ddd;
+        }
+        input[type="text"] {
+            width: 80%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+        input[type="text"]:focus {
+            border-color: #3498db;
+            outline: none;
+        }
+        .btn-container {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        .btn {
+            background-color: #3498db;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+        .btn:hover {
+            background-color: #2980b9;
+        }
+        .result {
+            margin-top: 30px;
+            font-size: 18px;
+            color: #2c3e50;
+            text-align: center;
+        }
+        .result div {
+            margin-bottom: 10px;
+        }
+        .precision-input {
+            text-align: center;
+            margin-top: 20px;
+			/* width: 10%; */
+        }
+		.precision-textbox{
+			width: 12% !important;
+		}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- <h1>パターンA/B 試行結果</h1> -->
+        <table>
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>試行回数</th>
+                    <th>得られた回数</th>
+                    <th>最適である確率</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>パターンA</td>
+                    <td><input type="text" id="trialA" placeholder="試行回数A" value="3500"></td>
+                    <td><input type="text" id="resultA" placeholder="得られた回数A" value="110"></td>
+                    <td id="probabilityA">-</td>
+                </tr>
+                <tr>
+                    <td>パターンB</td>
+                    <td><input type="text" id="trialB" placeholder="試行回数B" value="3000"></td>
+                    <td><input type="text" id="resultB" placeholder="得られた回数B" value="100"></td>
+                    <td id="probabilityB">-</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- 精度の入力フィールド -->
+        <div class="precision-input">
+            <label for="precision">精度:</label>
+            <input class="precision-textbox" type="text" id="precision" value="500000">
+        </div>
+
+        <div class="btn-container">
+            <button class="btn" onclick="calculate()">計算</button>
+        </div>
+    </div>
+
+    <script>
+        function gammaSample(shape, rate) {
+            let d = shape - 1 / 3;
+            let c = 1 / Math.sqrt(9 * d);
+            
+            while (true) {
+                let x = 0;
+                let v = 0;
+                
+                while (v <= 0) {
+                    let normal = Math.sqrt(-2 * Math.log(Math.random())) * Math.cos(2 * Math.PI * Math.random());
+                    x = normal;
+                    v = Math.pow(1 + c * x, 3);
+                }
+                
+                let u = Math.random();
+                
+                if (u < 1 - 0.0331 * Math.pow(x, 4) || Math.log(u) < 0.5 * Math.pow(x, 2) + d * (1 - v + Math.log(v))) {
+                    return d * v / rate;
+                }
+            }
+        }
+        
+        function betaSample(alpha, beta) {
+            let x = gammaSample(alpha, 1);
+            let y = gammaSample(beta, 1);
+            return x / (x + y);
+        }
+        
+        function comparePatterns(alphaA, betaA, alphaB, betaB, iterations) {
+            let aWins = 0;
+        
+            for (let i = 0; i < iterations; i++) {
+                let sampleA = betaSample(alphaA, betaA);
+                let sampleB = betaSample(alphaB, betaB);
+                
+                if (sampleA > sampleB) {
+                    aWins++;
+                }
+            }
+        
+            return aWins / iterations;
+        }
+
+        function calculate() {
+            const trialA = parseInt(document.getElementById('trialA').value) || 0;
+            const trialB = parseInt(document.getElementById('trialB').value) || 0;
+            const resultA = parseInt(document.getElementById('resultA').value) || 0;
+            const resultB = parseInt(document.getElementById('resultB').value) || 0;
+            const precision = parseInt(document.getElementById('precision').value) || 500000;
+
+            let alphaA = resultA + 1;
+            let betaA = trialA - resultA + 1;
+            let alphaB = resultB + 1;
+            let betaB = trialB - resultB + 1;
+            let iterations = precision;
+
+            let probability1 = comparePatterns(alphaA, betaA, alphaB, betaB, iterations) * 100;
+            let probability2 = 100 - probability1;
+
+            document.getElementById('probabilityA').innerText = probability1.toFixed(2) + '%';
+            document.getElementById('probabilityB').innerText = probability2.toFixed(2) + '%';
+        }
+    </script>
+</body>
+</html>
